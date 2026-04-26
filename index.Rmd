@@ -1,0 +1,394 @@
+---
+title: "Impact of Eliminating Automatic Marketplace Re-Enrollment on APTC Recipients"
+author: "Shreya Shankar"
+date: "2026-03-19"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+    theme: cosmo
+    self_contained: true
+    navbar:
+      - { title: "Source Code", href: "https://github.com/YOUR_USERNAME/YOUR_REPO_NAME", align: right, icon: "fa-github" }
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+library(readxl)
+library(plotly)
+library(dplyr)
+library(flexdashboard)
+
+df <- read_excel("data/aptc_post_policy_data_clean.xlsx", sheet = "APTC Data")
+colnames(df) <- trimws(colnames(df))
+```
+
+Uninsurance Rate Map
+=====================================
+
+Column {data-width=320}
+-------------------------------------
+
+### Description
+
+As part of the 2025 fiscal year budget reconciliation process, Congress passed the One Big Beautiful Bill Act in July 2025. Section 112201 of the act eliminates automatic re-enrollment from the health insurance exchange for APTC recipients beginning in plan year 2028. Beneficiaries hoping to renew coverage will have to actively select a plan and provide income, immigration, residency, household, and coverage information each year.
+
+Drawing on a natural experiment in Massachusetts where a similar administrative ordeal reduced re-enrollment by 33%, this analysis assumes a 33% reduction in Marketplace re-enrollment once automatic re-enrollment is eliminated. It further assumes that 50% of APTC recipients who fail to re-enroll will become uninsured, based on survey evidence from Medicaid unwinding in four Southern states. Because APTC recipients earn between 100 and 400% of the federal poverty level, those at the lower end of this range may still face financial barriers to maintaining coverage.
+
+### Key Takeaways
+
+The interactive map reveals substantial geographic variation in how the elimination of automatic re-enrollment with APTC subsidies would affect state-level uninsurance. Southern and Southwestern states such as Texas, Georgia, and Florida already have among the highest current uninsured rates, and these same states are projected to experience the largest increases under the policy change. By toggling between the **Current Rate**, **Post-Policy Rate**, and **Change in Rate** views, it becomes clear that the policy disproportionately impacts states that already have the weakest insurance coverage, widening existing geographic disparities in health care access.
+
+
+Column {data-width=680}
+-------------------------------------
+
+### State-Level Uninsurance Rate (Current / Post-Policy / Change)
+
+```{r uninsurance-map}
+# convert to percentages and get the change
+df_map <- df %>% mutate(
+  current_pct = as.numeric(current_uninsured_rate) * 100,
+  post_pct    = as.numeric(post_policy_uninsured_rate) * 100,
+  change_ppt  = post_pct - current_pct
+)
+
+# hover text for each view
+df_map <- df_map %>% mutate(
+  hover_current = paste0(
+    "<b>", state, "</b><br>",
+    "Current Uninsured Rate: ", sprintf("%.1f%%", current_pct), "<br>",
+    "Post-Policy Uninsured Rate: ", sprintf("%.1f%%", post_pct), "<br>",
+    "Change: +", sprintf("%.1f", change_ppt), " pp"
+  ),
+  hover_post = paste0(
+    "<b>", state, "</b><br>",
+    "Post-Policy Uninsured Rate: ", sprintf("%.1f%%", post_pct), "<br>",
+    "Current Uninsured Rate: ", sprintf("%.1f%%", current_pct), "<br>",
+    "Change: +", sprintf("%.1f", change_ppt), " pp"
+  ),
+  hover_change = paste0(
+    "<b>", state, "</b><br>",
+    "Change in Uninsured Rate: +", sprintf("%.1f", change_ppt), " pp<br>",
+    "Current: ", sprintf("%.1f%%", current_pct),
+    " \u2192 Post-Policy: ", sprintf("%.1f%%", post_pct)
+  )
+)
+
+# colors
+purple_scale <- list(
+  list(0,    "#F2E6FF"),
+  list(0.25, "#C9A0E8"),
+  list(0.5,  "#9B59B6"),
+  list(0.75, "#6C3483"),
+  list(1,    "#2E0854")
+)
+
+# diverging color scale for the change map
+diverging_scale <- list(
+  list(0,    "#1B4F8A"),
+  list(0.25, "#7BAFD4"),
+  list(0.5,  "#FFFFFF"),
+  list(0.75, "#9B59B6"),
+  list(1,    "#2E0854")
+)
+
+rate_lo <- floor(min(c(df_map$current_pct, df_map$post_pct)))
+rate_hi <- ceiling(max(c(df_map$current_pct, df_map$post_pct)))
+change_lo <- -4
+change_hi <-  4
+
+# description text
+desc_current <- paste0(
+  "This map displays the current percentage of the state population that is<br>",
+  "uninsured, prior to any policy change. Darker shading indicates a higher<br>",
+  "uninsurance rate. Hover over a state to see both rates and the projected change."
+)
+
+desc_post <- paste0(
+  "This map displays the projected post-policy uninsurance rate for each state<br>",
+  "after the elimination of automatic re-enrollment with APTC. Darker shading<br>",
+  "indicates a higher projected uninsurance rate."
+)
+
+desc_change <- paste0(
+  "This map highlights the projected increase in uninsurance (in percentage points)<br>",
+  "resulting from the elimination of automatic re-enrollment with APTC. Purple<br>",
+  "coloring indicates an increase in the uninsured population, with darker<br>",
+  "shading indicating a larger increase."
+)
+
+# helper to make the annotations
+make_annot <- function(desc) {
+  list(
+    list(text = paste0("<i>", desc, "</i>"),
+         x = 0.01, y = -0.02, xref = "paper", yref = "paper",
+         xanchor = "left", yanchor = "top", showarrow = FALSE,
+         font = list(size = 12, color = "#555555"), align = "left"),
+    list(text = "<b>Source:</b> CMS, 2025",
+         x = 0.01, y = -0.3, xref = "paper", yref = "paper",
+         xanchor = "left", yanchor = "top", showarrow = FALSE,
+         font = list(size = 10, color = "#777777"))
+  )
+}
+
+annot_current <- make_annot(desc_current)
+annot_post    <- make_annot(desc_post)
+annot_change  <- make_annot(desc_change)
+
+# build the map
+fig_map <- plot_geo(df_map, locationmode = "USA-states") %>%
+  add_trace(
+    z = ~current_pct, locations = ~state,
+    text = ~hover_current, hoverinfo = "text",
+    colorscale = purple_scale,
+    zmin = rate_lo, zmax = rate_hi,
+    marker   = list(line = list(color = "white", width = 1)),
+    colorbar = list(
+      title = list(text = "Uninsured %", font = list(size = 12)),
+      ticksuffix = "%", len = 0.5, thickness = 16, x = 1.02, y = 0.5
+    ),
+    visible = TRUE
+  ) %>%
+  add_trace(
+    z = ~post_pct, locations = ~state,
+    text = ~hover_post, hoverinfo = "text",
+    colorscale = purple_scale,
+    zmin = rate_lo, zmax = rate_hi,
+    marker   = list(line = list(color = "white", width = 1)),
+    colorbar = list(
+      title = list(text = "Uninsured %", font = list(size = 12)),
+      ticksuffix = "%", len = 0.5, thickness = 16, x = 1.02, y = 0.5
+    ),
+    visible = FALSE
+  ) %>%
+  add_trace(
+    z = ~change_ppt, locations = ~state,
+    text = ~hover_change, hoverinfo = "text",
+    colorscale = diverging_scale,
+    zmin = change_lo, zmax = change_hi,
+    marker   = list(line = list(color = "white", width = 1)),
+    colorbar = list(
+      title = list(text = "Change (pp)", font = list(size = 12)),
+      ticksuffix = " pp", len = 0.5, thickness = 16, x = 1.02, y = 0.5
+    ),
+    visible = FALSE
+  ) %>%
+  layout(
+    title = list(
+      text = "Current Uninsurance Rate by State",
+      font = list(size = 18, color = "#1a1a2e"),
+      x = 0.5, y = 0.99, xanchor = "center", yanchor = "top"
+    ),
+    geo = list(
+      scope      = "usa",
+      projection = list(type = "albers usa"),
+      showlakes  = FALSE,
+      bgcolor    = "#f8f9fa",
+      lakecolor  = "#f8f9fa",
+      domain     = list(y = c(0.22, 0.88))
+    ),
+    paper_bgcolor = "#f8f9fa",
+    margin = list(t = 70, b = 160, l = 20, r = 80),
+    annotations = annot_current,
+    updatemenus = list(list(
+      type      = "buttons",
+      direction = "right",
+      x = 0.0, xanchor = "left", y = 0.96, yanchor = "top",
+      bgcolor     = "#ece0f4",
+      bordercolor = "#6C3483",
+      font = list(size = 12, color = "#1a1a2e"),
+      pad  = list(t = 5, b = 5, l = 10, r = 10),
+      buttons = list(
+        list(
+          label  = "  Current Rate  ",
+          method = "update",
+          args   = list(
+            list(visible = list(TRUE, FALSE, FALSE)),
+            list(title = list(text = "Current Uninsurance Rate by State"),
+                 annotations = annot_current)
+          )
+        ),
+        list(
+          label  = "  Post-Policy Rate  ",
+          method = "update",
+          args   = list(
+            list(visible = list(FALSE, TRUE, FALSE)),
+            list(title = list(text = "Post-Policy Uninsurance Rate by State"),
+                 annotations = annot_post)
+          )
+        ),
+        list(
+          label  = "  Change in Rate  ",
+          method = "update",
+          args   = list(
+            list(visible = list(FALSE, FALSE, TRUE)),
+            list(title = list(text = "Projected Change in Uninsurance Rate by State"),
+                 annotations = annot_change)
+          )
+        )
+      )
+    ))
+  ) %>%
+  config(responsive = TRUE)
+
+fig_map
+```
+
+
+
+Subsidy Dependence
+=====================================
+
+Column {data-width=320}
+-------------------------------------
+
+### Description
+
+This analysis pairs each state's average monthly premium after APTC with its projected change in uninsurance rate to examine how subsidy dependence shapes vulnerability to the policy change. The x-axis (log scale) captures how much consumers actually pay out of pocket after their tax credit is applied — a direct measure of subsidy dependence, since lower post-APTC premiums indicate larger subsidies and thinner consumer contribution.
+
+Bubble size is scaled to the number of APTC recipients in each state projected to become uninsured, letting the chart show both a state's vulnerability and the absolute magnitude of the population affected. A log-linear regression of the change in uninsurance rate on log(premium) summarizes the overall trend (R² reported in-chart), with the log transformation applied so that New York's outlier premium does not dominate the fit.
+
+### Key Takeaways
+
+The bubble chart reveals a clear inverse relationship between how much consumers currently pay out of pocket and how severely a state's uninsurance rate is projected to rise. States where average post-APTC premiums are lowest — meaning consumers rely most heavily on subsidies to afford coverage — face the steepest projected increases in their uninsured populations. Large bubbles for states like Florida, Texas, and California indicate that the absolute number of people affected is also concentrated in these high-dependence states, suggesting that the policy change would simultaneously hit the most subsidy-dependent and most populous Marketplace states the hardest.
+
+
+
+Column {data-width=680}
+-------------------------------------
+
+### Subsidy Dependence & Projected Increase in Uninsurance
+
+```{r equity-bubble}
+# lookup table to get full state names for the hover labels
+state_names <- c(
+  AL="Alabama",AK="Alaska",AZ="Arizona",AR="Arkansas",CA="California",
+  CO="Colorado",CT="Connecticut",DE="Delaware",DC="District of Columbia",
+  FL="Florida",GA="Georgia",HI="Hawaii",ID="Idaho",IL="Illinois",
+  IN="Indiana",IA="Iowa",KS="Kansas",KY="Kentucky",LA="Louisiana",
+  ME="Maine",MD="Maryland",MA="Massachusetts",MI="Michigan",MN="Minnesota",
+  MS="Mississippi",MO="Missouri",MT="Montana",NE="Nebraska",NV="Nevada",
+  NH="New Hampshire",NJ="New Jersey",NM="New Mexico",NY="New York",
+  NC="North Carolina",ND="North Dakota",OH="Ohio",OK="Oklahoma",
+  OR="Oregon",PA="Pennsylvania",RI="Rhode Island",SC="South Carolina",
+  SD="South Dakota",TN="Tennessee",TX="Texas",UT="Utah",VT="Vermont",
+  VA="Virginia",WA="Washington",WV="West Virginia",WI="Wisconsin",WY="Wyoming"
+)
+
+# calculate the variables needed
+df_bubble <- df %>% mutate(
+  current_pct    = as.numeric(current_uninsured_rate) * 100,
+  post_pct       = as.numeric(post_policy_uninsured_rate) * 100,
+  change_ppt     = post_pct - current_pct,
+  prem_after     = as.numeric(avg_premium_after_aptc),
+  aptc_uninsured = as.numeric(post_policy_aptc_uninsured),
+  state_full     = state_names[state]
+)
+
+# hover text
+df_bubble <- df_bubble %>% mutate(
+  hover_text = paste0(
+    "<b>", state_full, " (", state, ")</b><br>",
+    "Avg Premium After APTC: $", formatC(prem_after, format = "d", big.mark = ","), "/mo<br>",
+    "Change in Uninsured Rate: +", sprintf("%.1f", change_ppt), " pp<br>",
+    "APTC Consumers Becoming Uninsured: ",
+    formatC(aptc_uninsured, format = "d", big.mark = ",")
+  )
+)
+
+# bubble sizes
+size_max <- 55
+df_bubble <- df_bubble %>% mutate(
+  bubble_size = sqrt(aptc_uninsured) / sqrt(max(aptc_uninsured)) * size_max
+)
+
+# trend line
+df_bubble <- df_bubble %>% mutate(log_prem = log(prem_after))
+fit <- lm(change_ppt ~ log_prem, data = df_bubble)
+r_sq <- summary(fit)$r.squared
+
+x_seq <- seq(min(df_bubble$prem_after), max(df_bubble$prem_after), length.out = 100)
+y_pred <- predict(fit, newdata = data.frame(log_prem = log(x_seq)))
+
+# build the chart
+fig_bubble <- plot_ly() %>%
+  add_trace(
+    x = x_seq, y = y_pred,
+    type = "scatter", mode = "lines",
+    line = list(color = "#2E0854", width = 2.5, dash = "dash"),
+    hoverinfo = "skip",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    data = df_bubble,
+    x = ~prem_after, y = ~change_ppt,
+    type = "scatter", mode = "markers",
+    marker = list(
+      size     = ~bubble_size,
+      color    = "#C9A0E8",
+      line     = list(color = "white", width = 1),
+      opacity  = 0.85,
+      sizemode = "diameter"
+    ),
+    text      = ~hover_text,
+    hoverinfo = "text",
+    showlegend = FALSE
+  ) %>%
+  layout(
+    title = list(
+      text = "Subsidy Dependence & Projected Increase in Uninsurance",
+      font = list(size = 16, color = "#1a1a2e"),
+      x = 0.5, y = 0.97, xanchor = "center"
+    ),
+    xaxis = list(
+      title      = list(text = "Average Monthly Premium After APTC ($, log scale)",
+                        font = list(size = 13)),
+      type       = "log",
+      tickprefix = "$",
+      tickvals   = c(25, 50, 100, 200, 400),
+      gridcolor  = "#e0e0e0",
+      zeroline   = FALSE
+    ),
+    yaxis = list(
+      title      = list(text = "Change in Uninsured Rate (pp)", font = list(size = 13)),
+      ticksuffix = " pp",
+      gridcolor  = "#e0e0e0",
+      zeroline   = FALSE
+    ),
+    paper_bgcolor = "#f8f9fa",
+    plot_bgcolor  = "#f8f9fa",
+    margin = list(t = 80, b = 130, l = 70, r = 60),
+    annotations = list(
+      list(
+        text = paste0("R\u00B2 = ", sprintf("%.3f", r_sq)),
+        x = max(df_bubble$prem_after),
+        y = min(y_pred) - 0.1,
+        xref = "x", yref = "y",
+        showarrow = FALSE,
+        font = list(size = 11, color = "#2E0854", family = "serif")
+      ),
+      list(
+        text = "<i>Bubble size = number of APTC consumers projected to become uninsured</i>",
+        x = 0.99, y = 1.0, xref = "paper", yref = "paper",
+        xanchor = "right", yanchor = "top", showarrow = FALSE,
+        font = list(size = 10, color = "#777777")
+      )
+    )
+  ) %>%
+  config(responsive = TRUE)
+
+fig_bubble
+```
+
+
+
+
+
+Dataset Information
+=====================================
+
+This dashboard utilizes public enrollment records provided by the Centers for Medicare and Medicaid Services (CMS) for the 2025 fiscal year. The study population comprises all nationwide Marketplace consumers who receive Advance Premium Tax Credits (APTC) to subsidize their health insurance coverage. The final dataset includes state-level observations for all 50 U.S. states and the District of Columbia to ensure a complete national sample. These aggregate data points are used to model the relationship between current subsidy dependence and projected coverage loss resulting from administrative policy changes. By synthesizing these official records, the analysis provides a robust evaluation of how eliminating automatic re-enrollment disproportionately affects the most vulnerable Marketplace populations.
+
+
