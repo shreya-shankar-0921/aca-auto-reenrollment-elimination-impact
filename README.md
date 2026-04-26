@@ -27,12 +27,12 @@ The projections in this dashboard are grounded in real-world administrative data
 ## Repository Contents
 * `index.Rmd`: The primary source code for the interactive flexdashboard.
 * `index.html`: The standalone, rendered version of the dashboard.
-* `data/`: Directory containing the cleaned CMS data used for the analysis.
 
 ## Real World Impact & Importance
+This project is critical because it quantifies how eliminating automatic Marketplace re-enrollment will disproportionately strip health coverage from the most vulnerable, subsidy-dependent populations. The findings offer actionable insights for policymakers by pinpointing specific high-risk regions, particularly Southern and Southwestern states, that will require targeted outreach to prevent widening disparities in healthcare access.
 
 ---
 
 ## Live Dashboard
 View the live, interactive project here:  
-**[PASTE YOUR GITHUB PAGES URL HERE]**
+**https://shreya-shankar-0921.github.io/aca-auto-reenrollment-elimination-impact/**
