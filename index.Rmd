@@ -248,7 +248,7 @@ Column {data-width=320}
 
 This analysis pairs each state's average monthly premium after APTC with its projected change in uninsurance rate to examine how subsidy dependence shapes vulnerability to the policy change. The x-axis (log scale) captures how much consumers actually pay out of pocket after their tax credit is applied — a direct measure of subsidy dependence, since lower post-APTC premiums indicate larger subsidies and thinner consumer contribution.
 
-Bubble size is scaled to the number of APTC recipients in each state projected to become uninsured, letting the chart show both a state's vulnerability and the absolute magnitude of the population affected. A log-linear regression of the change in uninsurance rate on log(premium) summarizes the overall trend (R² reported in-chart), with the log transformation applied so that New York's outlier premium does not dominate the fit.
+Bubble size is scaled to the number of APTC recipients in each state projected to become uninsured, letting the chart show both a state's vulnerability and the absolute magnitude of the population affected. A log-linear regression of the change in uninsurance rate on log(premium) summarizes the overall trend (R² = 0.592), with the log transformation applied so that New York's outlier premium does not dominate the fit.
 
 ### Key Takeaways
 
