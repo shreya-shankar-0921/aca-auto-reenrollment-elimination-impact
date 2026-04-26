@@ -35,4 +35,4 @@ The projections in this dashboard are grounded in real-world administrative data
 
 ## Live Dashboard
 View the live, interactive project here:  
-**[PASTE YOUR GITHUB PAGES URL HERE]**
+**https://shreya-shankar-0921.github.io/aca-auto-reenrollment-elimination-impact/**
